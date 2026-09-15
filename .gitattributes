@@ -1,0 +1,5 @@
+# Generated / tooling — exclude from language stats
+loadtests/reports/*.html linguist-generated=true
+loadtests/reports/*.json linguist-generated=true
+.specify/** linguist-vendored=true
+specs/** linguist-documentation=true

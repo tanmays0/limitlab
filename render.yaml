@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: limitlab-api
+    runtime: docker
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: REDIS_FAILURE_MODE
+        value: fail_closed
+      - key: CORS_ORIGINS
+        sync: false
+      - key: REDIS_URL
+        sync: false
