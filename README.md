@@ -1,37 +1,71 @@
 # LimitLab
 
-Rate-limiting API with token bucket and sliding window algorithms, Redis Lua
-atomicity, metrics, and a live demo dashboard.
+[![CI](https://github.com/tanmays0/limitlab/actions/workflows/ci.yml/badge.svg)](https://github.com/tanmays0/limitlab/actions/workflows/ci.yml)
+[![Demo](https://img.shields.io/badge/demo-live-22c55e)](https://limitlab.vercel.app)
+[![k6](https://img.shields.io/badge/k6-~8k%20RPS-0ea5e9)](./loadtests/reports/k6-report.html)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
-## Links
+High-performance rate-limiting platform: **token bucket** + **sliding window**,
+atomic **Redis Lua** enforcement, Prometheus metrics, and a live demo dashboard.
 
-| | |
-|--|--|
-| Demo | https://limitlab.vercel.app |
-| Repository | https://github.com/tanmays0/limitlab |
-| k6 report | [loadtests/reports/k6-report.html](./loadtests/reports/k6-report.html) |
+**Live demo:** https://limitlab.vercel.app
+
+![LimitLab demo — 10 allowed, 40 denied](./docs/assets/demo.png)
+
+## Stack
+
+| Layer | Tech |
+|-------|------|
+| API | FastAPI, uvicorn, pydantic |
+| Limiter | Redis Lua (token bucket, sliding window) |
+| Demo | Next.js 15, TypeScript |
+| Proof | k6 (~7,955 RPS local), `/metrics` |
+| Deploy | Vercel (demo), Fly/Render configs |
 
 ## Architecture
 
-```text
-Demo:   Browser → Next.js /api/v1/* (in-memory) on Vercel
-Bench:  Client → FastAPI → Redis Lua (packages/limiter)
+```mermaid
+flowchart LR
+  Browser -->|"HTTPS"| Demo["Next.js demo + /api"]
+  Client -->|"HTTP"| API["FastAPI"]
+  API --> Limiter["limitlab_limiter"]
+  Limiter --> Redis["Redis Lua"]
+  Demo -.->|"memory path"| Mem["In-process store"]
 ```
 
-- Algorithms: token bucket, sliding window (per policy)
-- Redis path: atomic Lua; `REDIS_FAILURE_MODE=fail_closed` (default) or `fail_open`
-- Demo path: in-process store + `POST /api/v1/burst`
+| Path | Use |
+|------|-----|
+| Demo `/api` | Public Vercel demo (in-memory + `/v1/burst`) |
+| FastAPI + Redis | Local bench / multi-instance correctness |
+
+## Features
+
+- Per-policy algorithm: token bucket or sliding window
+- Atomic admit/deny via Redis Lua (no over-admit under concurrency)
+- Standard headers: `X-RateLimit-*`, `Retry-After`
+- `REDIS_FAILURE_MODE=fail_closed` (default) or `fail_open`
+- Live UI: policy editor, sequential/parallel burst, remaining quota, latency
+- Load-test artifacts committed under `loadtests/reports/`
+
+## Monorepo
+
+```text
+apps/api          FastAPI service
+apps/web          Next.js demo + /api routes
+packages/limiter  Algorithms, Redis Lua, memory store
+loadtests         k6 scripts + reports
+specs/            Design docs
+```
 
 ## Quick start
 
-### Demo UI (memory API)
+### Demo UI
 
 ```bash
-cd apps/web
-npm install && npm run dev
+cd apps/web && npm install && npm run dev
 ```
 
-http://127.0.0.1:3000
+Open http://127.0.0.1:3000
 
 ### FastAPI + Redis
 
@@ -57,8 +91,6 @@ curl http://127.0.0.1:8080/health
 curl 'http://127.0.0.1:8080/metrics?format=json'
 ```
 
-`LIMITLAB_STORE=memory` selects the in-process store when Redis is unavailable.
-
 ## API
 
 | Method | Path | Description |
@@ -69,20 +101,19 @@ curl 'http://127.0.0.1:8080/metrics?format=json'
 | POST | `/v1/reset` | Clear subject quota |
 | GET/PUT | `/v1/policies/{id}` | Read / upsert policy |
 | GET | `/health` | Liveness |
-| GET | `/metrics` | Prometheus (`?format=json` for JSON; FastAPI) |
+| GET | `/metrics` | Prometheus (`?format=json`) |
 
-On the public demo, paths are prefixed with `/api`.
+Public demo paths are under `/api`.
 
 ## Load test
 
 | Metric | Result |
 |--------|--------|
-| RPS | ≈ 7,955 (`http_reqs.rate`) |
+| RPS | ≈ **7,955** |
 | p95 | ≈ 40 ms |
-| Setup | Apple M5, Redis Docker, 4 uvicorn workers, 200 VUs, 30s |
+| Hardware | Apple M5 · Redis Docker · 4 workers · 200 VUs · 30s |
 
-Reproduce: [loadtests/README.md](./loadtests/README.md)  
-Artifacts: [loadtests/reports/](./loadtests/reports/)
+[Reproduce](./loadtests/README.md) · [HTML report](./loadtests/reports/k6-report.html) · [JSON summary](./loadtests/reports/k6-summary.json)
 
 ## Tests
 
@@ -91,12 +122,21 @@ source .venv/bin/activate
 pytest packages/limiter apps/api -q
 ```
 
+CI runs the same suite on every push to `main`.
+
 ## Deploy
 
-- UI: Vercel project `limitlab` (`apps/web`)
-- Redis API: [fly.toml](./fly.toml), [render.yaml](./render.yaml)
-- Notes: [DEPLOY.md](./DEPLOY.md)
+| Surface | Target |
+|---------|--------|
+| Demo UI + `/api` | [limitlab.vercel.app](https://limitlab.vercel.app) |
+| Redis API | [fly.toml](./fly.toml), [render.yaml](./render.yaml) |
+
+Details: [DEPLOY.md](./DEPLOY.md)
 
 ## Spec
 
 [specs/001-rate-limiter-platform/](./specs/001-rate-limiter-platform/)
+
+## License
+
+[MIT](./LICENSE)
