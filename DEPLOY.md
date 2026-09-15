@@ -5,11 +5,17 @@
 | Demo | https://limitlab.vercel.app |
 | Repository | https://github.com/tanmays0/limitlab |
 
-Public demo: Next.js `/api/v1/*` (in-memory) on Vercel. SSO disabled.
+## Path A — public demo (done)
 
-## Redis-backed FastAPI
+Next.js `/api/v1/*` in-memory limiter on Vercel. SSO disabled.  
+Live: https://limitlab.vercel.app
 
-Config: [fly.toml](./fly.toml), [render.yaml](./render.yaml), [apps/api/Dockerfile](./apps/api/Dockerfile).
+Leave `NEXT_PUBLIC_API_URL` unset so the UI uses same-origin `/api`.
+
+## Path B — Redis FastAPI (optional, not required)
+
+For multi-instance Redis / production-style hosting. Config:
+[fly.toml](./fly.toml), [render.yaml](./render.yaml), [apps/api/Dockerfile](./apps/api/Dockerfile).
 
 ```bash
 fly apps create limitlab-api
@@ -22,4 +28,4 @@ fly deploy
 
 Render: Blueprint from this repo; set `REDIS_URL` and `CORS_ORIGINS`.
 
-Point the UI at FastAPI with Vercel env `NEXT_PUBLIC_API_URL` (no trailing slash). Leave unset for the embedded `/api` demo.
+Optional UI wire-up: Vercel env `NEXT_PUBLIC_API_URL=https://YOUR-APP.fly.dev` (no trailing slash), then redeploy.
